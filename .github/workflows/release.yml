@@ -1,0 +1,218 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 1.2.3 — no leading v)"
+        required: true
+        type: string
+      notes:
+        description: "Release notes (optional, one-liner)"
+        required: false
+        type: string
+
+env:
+  BINARY_NAME: toporic
+  DIST_REPO: ${{ github.repository_owner }}/toporic-code
+
+jobs:
+  # ── Build matrix ────────────────────────────────────────────────────────────
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-apple-darwin
+            runner: macos-13
+            archive: tar.gz
+            cross: false
+
+          - target: aarch64-apple-darwin
+            runner: macos-latest       # Apple Silicon runner (macos-14)
+            archive: tar.gz
+            cross: false
+
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-22.04
+            archive: tar.gz
+            cross: false
+
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-22.04
+            archive: tar.gz
+            cross: true               # uses cross-rs for QEMU cross-compile
+
+          - target: x86_64-pc-windows-msvc
+            runner: windows-latest
+            archive: zip
+            cross: false
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.target }}-cargo-
+
+      - name: Install cross (Linux arm64 only)
+        if: matrix.cross == true
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      # ── macOS: install static OpenSSL so reqwest links statically ──────────
+      - name: Install OpenSSL (macOS)
+        if: runner.os == 'macOS'
+        run: brew install openssl@3
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+
+      # ── Linux: install musl tools for static-ish linking ──────────────────
+      - name: Install build deps (Linux native)
+        if: runner.os == 'Linux' && matrix.cross == false
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libssl-dev
+
+      - name: Build (native)
+        if: matrix.cross == false
+        run: cargo build --release --target ${{ matrix.target }} --bin ${{ env.BINARY_NAME }}
+        env:
+          OPENSSL_STATIC: 1
+          CARGO_INCREMENTAL: 0
+
+      - name: Build (cross)
+        if: matrix.cross == true
+        run: cross build --release --target ${{ matrix.target }} --bin ${{ env.BINARY_NAME }}
+        env:
+          CARGO_INCREMENTAL: 0
+
+      # ── Package ─────────────────────────────────────────────────────────────
+      - name: Package (Unix)
+        if: matrix.archive == 'tar.gz'
+        shell: bash
+        run: |
+          BIN=target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}
+          strip "$BIN" || true
+          ARTIFACT="${{ env.BINARY_NAME }}-v${{ inputs.version }}-${{ matrix.target }}.tar.gz"
+          tar -czf "$ARTIFACT" -C "$(dirname $BIN)" "$(basename $BIN)"
+          echo "ARTIFACT=$ARTIFACT" >> "$GITHUB_ENV"
+          sha256sum "$ARTIFACT" > "$ARTIFACT.sha256"
+
+      - name: Package (Windows)
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          $bin = "target\${{ matrix.target }}\release\${{ env.BINARY_NAME }}.exe"
+          $artifact = "${{ env.BINARY_NAME }}-v${{ inputs.version }}-${{ matrix.target }}.zip"
+          Compress-Archive -Path $bin -DestinationPath $artifact
+          "ARTIFACT=$artifact" | Out-File -FilePath $env:GITHUB_ENV -Append
+          $hash = (Get-FileHash $artifact -Algorithm SHA256).Hash.ToLower()
+          "$hash  $artifact" | Out-File -FilePath "$artifact.sha256" -Encoding ascii
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: |
+            ${{ env.ARTIFACT }}
+            ${{ env.ARTIFACT }}.sha256
+          if-no-files-found: error
+
+  # ── Publish to distribution repo ────────────────────────────────────────────
+  publish:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write          # needed to create releases on the dist repo via PAT
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+          merge-multiple: true
+
+      - name: Merge sha256 files into one
+        run: |
+          cat artifacts/*.sha256 > sha256sums.txt
+          echo "--- sha256sums.txt ---"
+          cat sha256sums.txt
+
+      - name: Create GitHub Release on distribution repo
+        env:
+          GH_TOKEN: ${{ secrets.DIST_REPO_TOKEN }}   # PAT with repo scope on dist repo
+          VERSION: ${{ inputs.version }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          # Install gh CLI (pre-installed on ubuntu-22.04, but be explicit)
+          gh --version
+
+          TAG="v${VERSION}"
+          TITLE="Toporic ${TAG}"
+          BODY="## Toporic ${TAG}
+
+          ${NOTES:-"See CHANGELOG.md for details."}
+
+          ### Installation
+
+          **macOS / Linux**
+          \`\`\`bash
+          curl -fsSL https://raw.githubusercontent.com/${{ env.DIST_REPO }}/main/install.sh | sh
+          \`\`\`
+
+          **Windows (PowerShell)**
+          \`\`\`powershell
+          irm https://raw.githubusercontent.com/${{ env.DIST_REPO }}/main/install.ps1 | iex
+          \`\`\`
+
+          ### Binaries
+
+          | Platform | File |
+          |----------|------|
+          | macOS Intel | \`toporic-${TAG}-x86_64-apple-darwin.tar.gz\` |
+          | macOS Apple Silicon | \`toporic-${TAG}-aarch64-apple-darwin.tar.gz\` |
+          | Linux x86_64 | \`toporic-${TAG}-x86_64-unknown-linux-gnu.tar.gz\` |
+          | Linux arm64 | \`toporic-${TAG}-aarch64-unknown-linux-gnu.tar.gz\` |
+          | Windows x86_64 | \`toporic-${TAG}-x86_64-pc-windows-msvc.zip\` |
+          "
+
+          gh release create "$TAG" \
+            --repo "${{ env.DIST_REPO }}" \
+            --title "$TITLE" \
+            --notes "$BODY" \
+            artifacts/*.tar.gz \
+            artifacts/*.zip \
+            sha256sums.txt
+
+      # Update version.json so the binary's built-in update checker sees the new version
+      - name: Update version.json
+        env:
+          GH_TOKEN: ${{ secrets.DIST_REPO_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          echo "{\"version\":\"${VERSION}\"}" > version.json
+          gh api \
+            --method PUT \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ env.DIST_REPO }}/contents/version.json \
+            -f message="chore: bump version.json to ${VERSION}" \
+            -f content="$(base64 -w0 version.json)" \
+            -f sha="$(gh api /repos/${{ env.DIST_REPO }}/contents/version.json --jq .sha 2>/dev/null || echo '')" \
+          || true
