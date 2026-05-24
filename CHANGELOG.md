@@ -29,5 +29,5 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - `toporic serve` HTTP/SSE API mode
 - Binary update check against `version.json`
 
-[Unreleased]: https://github.com/YOUR_ORG/toporic-code/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/YOUR_ORG/toporic-code/releases/tag/v0.1.0
+[Unreleased]: https://github.com/ToporicAI/toporic-code/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/ToporicAI/toporic-code/releases/tag/v0.1.0

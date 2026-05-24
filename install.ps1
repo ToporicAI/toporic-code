@@ -1,8 +1,8 @@
 # Toporic installer — Windows PowerShell
 # Usage:
-#   irm https://raw.githubusercontent.com/YOUR_ORG/toporic-code/main/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/ToporicAI/toporic-code/main/install.ps1 | iex
 #   or with a specific version:
-#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/YOUR_ORG/toporic-code/main/install.ps1))) -Version 1.2.3
+#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/ToporicAI/toporic-code/main/install.ps1))) -Version 1.2.3
 
 param(
     [string]$Version = "",
@@ -11,7 +11,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$Repo   = "YOUR_ORG/toporic-code"
+$Repo   = "ToporicAI/toporic-code"
 $Binary = "toporic"
 $Target = "x86_64-pc-windows-msvc"
 

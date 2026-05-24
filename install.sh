@@ -1,13 +1,13 @@
 #!/usr/bin/env sh
 # Toporic installer — Unix (macOS & Linux)
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/YOUR_ORG/toporic-code/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/ToporicAI/toporic-code/main/install.sh | sh
 #   or with a specific version:
-#   curl -fsSL https://raw.githubusercontent.com/YOUR_ORG/toporic-code/main/install.sh | sh -s -- --version 1.2.3
+#   curl -fsSL https://raw.githubusercontent.com/ToporicAI/toporic-code/main/install.sh | sh -s -- --version 1.2.3
 
 set -eu
 
-REPO="YOUR_ORG/toporic-code"
+REPO="ToporicAI/toporic-code"
 BINARY="toporic"
 INSTALL_DIR="${TOPORIC_INSTALL_DIR:-}"
 

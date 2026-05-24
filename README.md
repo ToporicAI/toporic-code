@@ -12,31 +12,31 @@ An AI agent harness for your terminal — built for coding, research, and automa
 ### macOS & Linux
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/YOUR_ORG/toporic-code/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/ToporicAI/toporic-code/main/install.sh | sh
 ```
 
 To install a specific version:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/YOUR_ORG/toporic-code/main/install.sh | sh -s -- --version 1.2.3
+curl -fsSL https://raw.githubusercontent.com/ToporicAI/toporic-code/main/install.sh | sh -s -- --version 1.2.3
 ```
 
 To install to a custom directory:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/YOUR_ORG/toporic-code/main/install.sh | sh -s -- --install-dir /usr/local/bin
+curl -fsSL https://raw.githubusercontent.com/ToporicAI/toporic-code/main/install.sh | sh -s -- --install-dir /usr/local/bin
 ```
 
 ### Windows (PowerShell)
 
 ```powershell
-irm https://raw.githubusercontent.com/YOUR_ORG/toporic-code/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/ToporicAI/toporic-code/main/install.ps1 | iex
 ```
 
 To install a specific version:
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/YOUR_ORG/toporic-code/main/install.ps1))) -Version 1.2.3
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/ToporicAI/toporic-code/main/install.ps1))) -Version 1.2.3
 ```
 
 ### Manual download
