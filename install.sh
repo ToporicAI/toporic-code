@@ -92,4 +92,4 @@ if [ "$OS" = "darwin" ]; then
 fi
 
 echo "Installed ${APP} ${VERSION} to ${INSTALL_DIR}/${APP}"
-echo "Run '${APP} --help' to get started."
+echo "Ready. Run 'toporic' in your working directory to start, or 'toporic --help' for all options."
