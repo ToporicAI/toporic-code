@@ -28,9 +28,9 @@ case "$ARCH" in
     ;;
 esac
 
-# ── Fetch latest version ──────────────────────────────────────────────────────
-VERSION_JSON_URL="https://raw.githubusercontent.com/${REPO}/main/version.json"
-VERSION=$(curl -fsSL "$VERSION_JSON_URL" | sed 's/.*"version":"\([^"]*\)".*/\1/')
+# ── Fetch latest version ─────────────────────────────────────────────────────
+VERSION_JSON_URL="https://toporic.com/code/tui/version.json"
+VERSION=$(curl -fsSL "$VERSION_JSON_URL" | sed -n 's/.*"version": "\([^"]*\)".*/\1/p')
 
 if [ -z "$VERSION" ]; then
   echo "Failed to determine latest version"
@@ -41,7 +41,7 @@ echo "Toporic ${VERSION} (${TARGET})"
 
 # ── Download binary ───────────────────────────────────────────────────────────
 RELEASE_URL="https://github.com/${REPO}/releases/download/v${VERSION}"
-ARCHIVE="${APP}-v${VERSION}-${TARGET}.tar.gz"
+ARCHIVE="toporic-code-v${VERSION}-${TARGET}.tar.gz"
 DOWNLOAD_URL="${RELEASE_URL}/${ARCHIVE}"
 
 TMPDIR=$(mktemp -d)
