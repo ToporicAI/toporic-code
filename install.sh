@@ -82,5 +82,9 @@ else
   cp "$BINARY" "${INSTALL_DIR}/${APP}"
 fi
 
+if [ "$OS" = "darwin" ]; then
+  xattr -d com.apple.quarantine "${INSTALL_DIR}/${APP}" 2>/dev/null || true
+fi
+
 echo "Installed ${APP} ${VERSION} to ${INSTALL_DIR}/${APP}"
 echo "Run '${APP} --help' to get started."
