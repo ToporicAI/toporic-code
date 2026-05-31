@@ -3,7 +3,7 @@ $ErrorActionPreference = "Stop"
 
 $App = "toporic"
 $Repo = "ToporicAI/toporic-code"
-$InstallDir = Join-Path $env:ProgramFiles $App
+$InstallDir = Join-Path $env:LOCALAPPDATA $App
 
 # ── Platform detection ────────────────────────────────────────────────────────
 $Arch = $env:PROCESSOR_ARCHITECTURE.ToLower()
@@ -36,19 +36,22 @@ New-Item -ItemType Directory -Path $TmpDir | Out-Null
 try {
   $ArchivePath = Join-Path $TmpDir $Archive
   Write-Output "Downloading ${DownloadUrl} ..."
-  curl.exe -fsSL $DownloadUrl -o $ArchivePath
+  curl.exe -fsSL --http1.1 $DownloadUrl -o $ArchivePath
 
   # ── Verify checksum ─────────────────────────────────────────────────────────
-  $CheckUrl = "${DownloadUrl}.sha256"
+  $CheckUrl = "${ReleaseUrl}/sha256sums.txt"
   try {
-    $CheckContent = curl.exe -fsSL $CheckUrl
-    $Expected = ($CheckContent -split '\s+')[0]
-    $Actual = (Get-FileHash $ArchivePath -Algorithm SHA256).Hash.ToLower()
-    if ($Expected -ne $Actual) {
-      Write-Error "Checksum mismatch!`n  Expected: ${Expected}`n  Actual:   ${Actual}"
-      exit 1
+    $CheckContent = curl.exe -fsSL --http1.1 $CheckUrl
+    $Lines = $CheckContent -split "`n"
+    $Expected = ($Lines | Where-Object { $_ -match [regex]::Escape($Archive) } | ForEach-Object { ($_ -split '\s+')[0] })
+    if ($Expected) {
+      $Actual = (Get-FileHash $ArchivePath -Algorithm SHA256).Hash.ToLower()
+      if ($Expected -ne $Actual) {
+        Write-Error "Checksum mismatch!`n  Expected: ${Expected}`n  Actual:   ${Actual}"
+        exit 1
+      }
+      Write-Output "Checksum verified."
     }
-    Write-Output "Checksum verified."
   } catch {
     Write-Warning "Checksum file not available, skipping verification."
   }
