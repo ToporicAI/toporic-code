@@ -4,7 +4,13 @@ A universal agent harness for AI-assisted software engineering, running entirely
 
 ## Installation
 
-### macOS / Linux
+### Official (recommended)
+
+```bash
+curl -fsSL https://toporic.com/code/tui/install.sh | sh
+```
+
+### GitHub alternative
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ToporicAI/toporic-code/main/install.sh | sh
@@ -53,7 +59,3 @@ toporic --version    # Check current version and see update instructions
 ```
 
 Or re-run the install script — it replaces the existing binary in place.
-
-## Building from Source
-
-This repo contains pre-built binaries only. Source is available in the [toporic monorepo](https://github.com/ToporicAI/toporic).

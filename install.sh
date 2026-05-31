@@ -5,6 +5,18 @@ APP="toporic"
 REPO="ToporicAI/toporic-code"
 INSTALL_DIR="/usr/local/bin"
 
+# ── Prerequisites ──────────────────────────────────────────────────────────────
+if ! command -v curl &>/dev/null; then
+  echo "Error: curl is required but not installed."
+  echo "Install it first, then re-run this script."
+  exit 1
+fi
+
+if ! command -v tar &>/dev/null; then
+  echo "Error: tar is required but not installed."
+  exit 1
+fi
+
 # ── Platform detection ────────────────────────────────────────────────────────
 ARCH=$(uname -m)
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -28,12 +40,20 @@ case "$ARCH" in
     ;;
 esac
 
-# ── Fetch latest version ─────────────────────────────────────────────────────
-VERSION_JSON_URL="https://toporic.com/code/tui/version.json"
-VERSION=$(curl -fsSL "$VERSION_JSON_URL" | sed -n 's/.*"version": "\([^"]*\)".*/\1/p')
+# ── Checksum tool detection ───────────────────────────────────────────────────
+SHA_CMD=""
+if command -v sha256sum &>/dev/null; then
+  SHA_CMD="sha256sum"
+elif command -v shasum &>/dev/null; then
+  SHA_CMD="shasum -a 256"
+fi
+
+# ── Fetch latest version ──────────────────────────────────────────────────────
+VERSION_JSON_URL="https://raw.githubusercontent.com/${REPO}/main/version.json"
+VERSION=$(curl -fsSL "$VERSION_JSON_URL" | sed 's/.*"version":"\([^"]*\)".*/\1/')
 
 if [ -z "$VERSION" ]; then
-  echo "Failed to determine latest version"
+  echo "Failed to determine latest version."
   exit 1
 fi
 
@@ -41,24 +61,23 @@ echo "Toporic ${VERSION} (${TARGET})"
 
 # ── Download binary ───────────────────────────────────────────────────────────
 RELEASE_URL="https://github.com/${REPO}/releases/download/v${VERSION}"
-ARCHIVE="toporic-code-v${VERSION}-${TARGET}.tar.gz"
+ARCHIVE="${APP}-v${VERSION}-${TARGET}.tar.gz"
 DOWNLOAD_URL="${RELEASE_URL}/${ARCHIVE}"
 
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
 echo "Downloading ${DOWNLOAD_URL} ..."
-curl -fL --http1.1 --progress-bar "$DOWNLOAD_URL" -o "$TMPDIR/$ARCHIVE"
+curl -fsSL "$DOWNLOAD_URL" -o "$TMPDIR/$ARCHIVE"
 
 # ── Verify checksum ───────────────────────────────────────────────────────────
-CHECK_URL="${RELEASE_URL}/sha256sums.txt"
-CHECK_FILE="$TMPDIR/sha256sums.txt"
+if [ -n "$SHA_CMD" ]; then
+  CHECK_URL="${DOWNLOAD_URL}.sha256"
+  CHECK_FILE="$TMPDIR/${ARCHIVE}.sha256"
 
-echo "Verifying checksum ..."
-if curl -fsSL --http1.1 "$CHECK_URL" -o "$CHECK_FILE" 2>/dev/null; then
-  EXPECTED=$(grep "$ARCHIVE" "$CHECK_FILE" | cut -d' ' -f1)
-  if [ -n "$EXPECTED" ]; then
-    ACTUAL=$(sha256sum "$TMPDIR/$ARCHIVE" | cut -d' ' -f1)
+  if curl -fsSL "$CHECK_URL" -o "$CHECK_FILE" 2>/dev/null; then
+    EXPECTED=$(cut -d' ' -f1 < "$CHECK_FILE")
+    ACTUAL=$($SHA_CMD "$TMPDIR/$ARCHIVE" | cut -d' ' -f1)
     if [ "$EXPECTED" != "$ACTUAL" ]; then
       echo "Checksum mismatch!"
       echo "  Expected: ${EXPECTED}"
@@ -70,26 +89,21 @@ if curl -fsSL --http1.1 "$CHECK_URL" -o "$CHECK_FILE" 2>/dev/null; then
 fi
 
 # ── Extract and install ───────────────────────────────────────────────────────
-echo "Extracting ..."
 tar -xzf "$TMPDIR/$ARCHIVE" -C "$TMPDIR"
 BINARY="$TMPDIR/$APP"
 
 if [ ! -x "$BINARY" ]; then
-  echo "Binary not found after extraction"
+  echo "Binary not found after extraction."
   exit 1
 fi
 
-echo "Installing to ${INSTALL_DIR} ..."
 if [ ! -w "$INSTALL_DIR" ]; then
-  echo "(requires sudo)"
+  echo "Installing to ${INSTALL_DIR} (requires sudo)..."
   sudo cp "$BINARY" "${INSTALL_DIR}/${APP}"
 else
   cp "$BINARY" "${INSTALL_DIR}/${APP}"
 fi
 
-if [ "$OS" = "darwin" ]; then
-  xattr -d com.apple.quarantine "${INSTALL_DIR}/${APP}" 2>/dev/null || true
-fi
-
+echo ""
 echo "Installed ${APP} ${VERSION} to ${INSTALL_DIR}/${APP}"
-echo "Ready. Run 'toporic' in your working directory to start, or 'toporic --help' for all options."
+echo "Run '${APP} --help' to get started."

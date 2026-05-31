@@ -3,72 +3,71 @@ $ErrorActionPreference = "Stop"
 
 $App = "toporic"
 $Repo = "ToporicAI/toporic-code"
-$InstallDir = Join-Path $env:LOCALAPPDATA $App
 
 # ── Platform detection ────────────────────────────────────────────────────────
-$Arch = $env:PROCESSOR_ARCHITECTURE.ToLower()
+# Use PROCESSOR_ARCHITECTURE from 64-bit PowerShell (WOW64 adds PROCESSOR_ARCHITEW6432)
+$Arch = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { $env:PROCESSOR_ARCHITECTURE }
+$Arch = $Arch.ToLower()
 $Target = switch ($Arch) {
   "amd64"   { "x86_64-pc-windows-msvc" }
   "arm64"   { "aarch64-pc-windows-msvc" }
-  default   { Write-Error "Unsupported architecture: $Arch"; exit 1 }
+  default   { throw "Unsupported architecture: $Arch" }
 }
 
+# ── Resolve install directory ─────────────────────────────────────────────────
+# Prefer user-local path (no admin required), fall back to ProgramFiles
+$LocalDir = Join-Path $env:LOCALAPPDATA $App
+$ProgramDir = Join-Path $env:ProgramFiles $App
+
+$InstallDir = if (Test-Path $ProgramDir) { $ProgramDir } else { $LocalDir }
+$NeedAdmin = $InstallDir -eq $ProgramDir
+
 # ── Fetch latest version ──────────────────────────────────────────────────────
-$VersionJsonUrl = "https://toporic.com/code/tui/version.json"
+$VersionJsonUrl = "https://raw.githubusercontent.com/${Repo}/main/version.json"
 $VersionJson = Invoke-RestMethod -Uri $VersionJsonUrl -UseBasicParsing
 $Version = $VersionJson.version
 
 if (-not $Version) {
-  Write-Error "Failed to determine latest version"
-  exit 1
+  throw "Failed to determine latest version."
 }
 
 Write-Output "Toporic ${Version} (${Target})"
 
 # ── Download binary ───────────────────────────────────────────────────────────
 $ReleaseUrl = "https://github.com/${Repo}/releases/download/v${Version}"
-$Archive = "toporic-code-v${Version}-${Target}.zip"
+$Archive = "${App}-v${Version}-${Target}.zip"
 $DownloadUrl = "${ReleaseUrl}/${Archive}"
 
 $TmpDir = Join-Path $env:TEMP ([System.IO.Path]::GetRandomFileName())
-New-Item -ItemType Directory -Path $TmpDir | Out-Null
+New-Item -ItemType Directory -Path $TmpDir -Force | Out-Null
 
 try {
   $ArchivePath = Join-Path $TmpDir $Archive
-  Write-Progress -Activity "Installing Toporic" -Status "Downloading ${Version} (${Target})" -PercentComplete 20
   Write-Output "Downloading ${DownloadUrl} ..."
-  curl.exe -fL --http1.1 --progress-bar $DownloadUrl -o $ArchivePath
+  Invoke-WebRequest -Uri $DownloadUrl -OutFile $ArchivePath -UseBasicParsing
 
   # ── Verify checksum ─────────────────────────────────────────────────────────
-  $CheckUrl = "${ReleaseUrl}/sha256sums.txt"
-  Write-Progress -Activity "Installing Toporic" -Status "Verifying checksum" -PercentComplete 60
+  $CheckUrl = "${DownloadUrl}.sha256"
   try {
-    $CheckContent = curl.exe -fsSL --http1.1 $CheckUrl
-    $Lines = $CheckContent -split "`n"
-    $Expected = ($Lines | Where-Object { $_ -match [regex]::Escape($Archive) } | ForEach-Object { ($_ -split '\s+')[0] })
-    if ($Expected) {
-      $Actual = (Get-FileHash $ArchivePath -Algorithm SHA256).Hash.ToLower()
-      if ($Expected -ne $Actual) {
-        Write-Error "Checksum mismatch!`n  Expected: ${Expected}`n  Actual:   ${Actual}"
-        exit 1
-      }
-      Write-Output "Checksum verified."
+    $CheckContent = Invoke-RestMethod -Uri $CheckUrl -UseBasicParsing
+    $Expected = ($CheckContent -split '\s+')[0]
+    $Actual = (Get-FileHash $ArchivePath -Algorithm SHA256).Hash.ToLower()
+    if ($Expected -ne $Actual) {
+      throw "Checksum mismatch!`n  Expected: ${Expected}`n  Actual:   ${Actual}"
     }
+    Write-Output "Checksum verified."
   } catch {
     Write-Warning "Checksum file not available, skipping verification."
   }
 
   # ── Extract and install ─────────────────────────────────────────────────────
-  Write-Progress -Activity "Installing Toporic" -Status "Extracting archive" -PercentComplete 70
   Expand-Archive -Path $ArchivePath -DestinationPath $TmpDir
   $BinaryPath = Join-Path $TmpDir "${App}.exe"
 
   if (-not (Test-Path $BinaryPath)) {
-    Write-Error "Binary not found after extraction"
-    exit 1
+    throw "Binary not found after extraction."
   }
 
-  Write-Progress -Activity "Installing Toporic" -Status "Installing binary" -PercentComplete 90
   if (-not (Test-Path $InstallDir)) {
     New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
   }
@@ -76,17 +75,21 @@ try {
   $DestPath = Join-Path $InstallDir "${App}.exe"
   Copy-Item -Path $BinaryPath -Destination $DestPath -Force
 
-  # Add to PATH for current user if not already there
+  # Add to PATH for current user
   $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
   if ($UserPath -notlike "*${InstallDir}*") {
     [Environment]::SetEnvironmentVariable("Path", "${UserPath};${InstallDir}", "User")
-    $env:Path += ";${InstallDir}"
     Write-Output "Added ${InstallDir} to user PATH"
   }
 
-  Write-Progress -Activity "Installing Toporic" -Completed
+  Write-Output ""
   Write-Output "Installed ${App} ${Version} to ${DestPath}"
-  Write-Output "Ready. Run 'toporic' in your working directory to start, or 'toporic --help' for all options."
+  Write-Output "Run '${App} --help' to get started."
+
+  if ($NeedAdmin) {
+    Write-Warning "Installed to ${InstallDir} (system directory)."
+    Write-Warning "Re-run the script from a non-admin shell to install to ${LocalDir} (no admin required)."
+  }
 } finally {
   Remove-Item -Path $TmpDir -Recurse -Force -ErrorAction SilentlyContinue
 }
