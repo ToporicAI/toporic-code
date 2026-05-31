@@ -35,11 +35,13 @@ New-Item -ItemType Directory -Path $TmpDir | Out-Null
 
 try {
   $ArchivePath = Join-Path $TmpDir $Archive
+  Write-Progress -Activity "Installing Toporic" -Status "Downloading ${Version} (${Target})" -PercentComplete 20
   Write-Output "Downloading ${DownloadUrl} ..."
-  curl.exe -fsSL --http1.1 $DownloadUrl -o $ArchivePath
+  curl.exe -fL --http1.1 --progress-bar $DownloadUrl -o $ArchivePath
 
   # ── Verify checksum ─────────────────────────────────────────────────────────
   $CheckUrl = "${ReleaseUrl}/sha256sums.txt"
+  Write-Progress -Activity "Installing Toporic" -Status "Verifying checksum" -PercentComplete 60
   try {
     $CheckContent = curl.exe -fsSL --http1.1 $CheckUrl
     $Lines = $CheckContent -split "`n"
@@ -57,6 +59,7 @@ try {
   }
 
   # ── Extract and install ─────────────────────────────────────────────────────
+  Write-Progress -Activity "Installing Toporic" -Status "Extracting archive" -PercentComplete 70
   Expand-Archive -Path $ArchivePath -DestinationPath $TmpDir
   $BinaryPath = Join-Path $TmpDir "${App}.exe"
 
@@ -65,6 +68,7 @@ try {
     exit 1
   }
 
+  Write-Progress -Activity "Installing Toporic" -Status "Installing binary" -PercentComplete 90
   if (-not (Test-Path $InstallDir)) {
     New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
   }
@@ -79,6 +83,7 @@ try {
     Write-Output "Added ${InstallDir} to user PATH"
   }
 
+  Write-Progress -Activity "Installing Toporic" -Completed
   Write-Output "Installed ${App} ${Version} to ${DestPath}"
   Write-Output "Run '${App} --help' to get started."
 } finally {
