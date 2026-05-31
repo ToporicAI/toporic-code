@@ -14,7 +14,7 @@ $Target = switch ($Arch) {
 }
 
 # ── Fetch latest version ──────────────────────────────────────────────────────
-$VersionJsonUrl = "https://raw.githubusercontent.com/${Repo}/main/version.json"
+$VersionJsonUrl = "https://toporic.com/code/tui/version.json"
 $VersionJson = Invoke-RestMethod -Uri $VersionJsonUrl -UseBasicParsing
 $Version = $VersionJson.version
 
@@ -27,7 +27,7 @@ Write-Output "Toporic ${Version} (${Target})"
 
 # ── Download binary ───────────────────────────────────────────────────────────
 $ReleaseUrl = "https://github.com/${Repo}/releases/download/v${Version}"
-$Archive = "${App}-v${Version}-${Target}.zip"
+$Archive = "toporic-code-v${Version}-${Target}.zip"
 $DownloadUrl = "${ReleaseUrl}/${Archive}"
 
 $TmpDir = Join-Path $env:TEMP ([System.IO.Path]::GetRandomFileName())
