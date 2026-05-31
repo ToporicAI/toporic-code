@@ -36,12 +36,12 @@ New-Item -ItemType Directory -Path $TmpDir | Out-Null
 try {
   $ArchivePath = Join-Path $TmpDir $Archive
   Write-Output "Downloading ${DownloadUrl} ..."
-  Invoke-WebRequest -Uri $DownloadUrl -OutFile $ArchivePath -UseBasicParsing
+  curl.exe -fsSL $DownloadUrl -o $ArchivePath
 
   # ── Verify checksum ─────────────────────────────────────────────────────────
   $CheckUrl = "${DownloadUrl}.sha256"
   try {
-    $CheckContent = Invoke-RestMethod -Uri $CheckUrl -UseBasicParsing
+    $CheckContent = curl.exe -fsSL $CheckUrl
     $Expected = ($CheckContent -split '\s+')[0]
     $Actual = (Get-FileHash $ArchivePath -Algorithm SHA256).Hash.ToLower()
     if ($Expected -ne $Actual) {
