@@ -48,12 +48,13 @@ TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
 echo "Downloading ${DOWNLOAD_URL} ..."
-curl -fsSL --http1.1 "$DOWNLOAD_URL" -o "$TMPDIR/$ARCHIVE"
+curl -fL --http1.1 --progress-bar "$DOWNLOAD_URL" -o "$TMPDIR/$ARCHIVE"
 
 # ── Verify checksum ───────────────────────────────────────────────────────────
 CHECK_URL="${RELEASE_URL}/sha256sums.txt"
 CHECK_FILE="$TMPDIR/sha256sums.txt"
 
+echo "Verifying checksum ..."
 if curl -fsSL --http1.1 "$CHECK_URL" -o "$CHECK_FILE" 2>/dev/null; then
   EXPECTED=$(grep "$ARCHIVE" "$CHECK_FILE" | cut -d' ' -f1)
   if [ -n "$EXPECTED" ]; then
@@ -69,6 +70,7 @@ if curl -fsSL --http1.1 "$CHECK_URL" -o "$CHECK_FILE" 2>/dev/null; then
 fi
 
 # ── Extract and install ───────────────────────────────────────────────────────
+echo "Extracting ..."
 tar -xzf "$TMPDIR/$ARCHIVE" -C "$TMPDIR"
 BINARY="$TMPDIR/$APP"
 
@@ -77,8 +79,9 @@ if [ ! -x "$BINARY" ]; then
   exit 1
 fi
 
+echo "Installing to ${INSTALL_DIR} ..."
 if [ ! -w "$INSTALL_DIR" ]; then
-  echo "Installing to ${INSTALL_DIR} (requires sudo)..."
+  echo "(requires sudo)"
   sudo cp "$BINARY" "${INSTALL_DIR}/${APP}"
 else
   cp "$BINARY" "${INSTALL_DIR}/${APP}"
