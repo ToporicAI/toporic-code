@@ -86,7 +86,7 @@ try {
 
   Write-Progress -Activity "Installing Toporic" -Completed
   Write-Output "Installed ${App} ${Version} to ${DestPath}"
-  Write-Output "Run '${App} --help' to get started."
+  Write-Output "Ready. Run 'toporic' in your working directory to start, or 'toporic --help' for all options."
 } finally {
   Remove-Item -Path $TmpDir -Recurse -Force -ErrorAction SilentlyContinue
 }
