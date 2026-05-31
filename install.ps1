@@ -80,6 +80,7 @@ try {
   $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
   if ($UserPath -notlike "*${InstallDir}*") {
     [Environment]::SetEnvironmentVariable("Path", "${UserPath};${InstallDir}", "User")
+    $env:Path += ";${InstallDir}"
     Write-Output "Added ${InstallDir} to user PATH"
   }
 
