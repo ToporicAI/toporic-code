@@ -1,7 +1,7 @@
 {
-  "version": "0.2.0",
+  "version": "0.2.1",
   "channel": "stable",
-  "released_at": "2026-06-09",
+  "released_at": "2026-06-10",
   "notes": "- Initial release of the application. This version includes core features and functionalities as outlined in the project roadmap. Future updates will focus on performance improvements, additional features, and bug fixes.",
   "changelog_url": "https://github.com/ToporicAI/toporic-code/releases"
 }
