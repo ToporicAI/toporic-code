@@ -61,7 +61,7 @@ echo "Toporic ${VERSION} (${TARGET})"
 
 # ── Download binary ───────────────────────────────────────────────────────────
 RELEASE_URL="https://github.com/${REPO}/releases/download/v${VERSION}"
-ARCHIVE="${APP}-v${VERSION}-${TARGET}.tar.gz"
+ARCHIVE="toporic-code-v${VERSION}-${TARGET}.tar.gz"
 DOWNLOAD_URL="${RELEASE_URL}/${ARCHIVE}"
 
 TMPDIR=$(mktemp -d)

@@ -35,7 +35,7 @@ Write-Output "Toporic ${Version} (${Target})"
 
 # ── Download binary ───────────────────────────────────────────────────────────
 $ReleaseUrl = "https://github.com/${Repo}/releases/download/v${Version}"
-$Archive = "${App}-v${Version}-${Target}.zip"
+$Archive = "toporic-code-v${Version}-${Target}.zip"
 $DownloadUrl = "${ReleaseUrl}/${Archive}"
 
 $TmpDir = Join-Path $env:TEMP ([System.IO.Path]::GetRandomFileName())
