@@ -50,7 +50,7 @@ fi
 
 # ── Fetch latest version ──────────────────────────────────────────────────────
 VERSION_JSON_URL="https://raw.githubusercontent.com/${REPO}/main/version.json"
-VERSION=$(curl -fsSL "$VERSION_JSON_URL" | sed 's/.*"version":"\([^"]*\)".*/\1/')
+VERSION=$(curl -fsSL "$VERSION_JSON_URL" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
 
 if [ -z "$VERSION" ]; then
   echo "Failed to determine latest version."
