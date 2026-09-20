@@ -72,19 +72,21 @@ curl -fsSL "$DOWNLOAD_URL" -o "$TMPDIR/$ARCHIVE"
 
 # ── Verify checksum ───────────────────────────────────────────────────────────
 if [ -n "$SHA_CMD" ]; then
-  CHECK_URL="${DOWNLOAD_URL}.sha256"
-  CHECK_FILE="$TMPDIR/${ARCHIVE}.sha256"
+  SUMS_URL="${RELEASE_URL}/sha256sums.txt"
+  SUMS_FILE="$TMPDIR/sha256sums.txt"
 
-  if curl -fsSL "$CHECK_URL" -o "$CHECK_FILE" 2>/dev/null; then
-    EXPECTED=$(cut -d' ' -f1 < "$CHECK_FILE")
-    ACTUAL=$($SHA_CMD "$TMPDIR/$ARCHIVE" | cut -d' ' -f1)
-    if [ "$EXPECTED" != "$ACTUAL" ]; then
-      echo "Checksum mismatch!"
-      echo "  Expected: ${EXPECTED}"
-      echo "  Actual:   ${ACTUAL}"
-      exit 1
+  if curl -fsSL "$SUMS_URL" -o "$SUMS_FILE" 2>/dev/null; then
+    EXPECTED=$(awk -v f="$ARCHIVE" '$2 == f { print $1; exit }' "$SUMS_FILE")
+    if [ -n "$EXPECTED" ]; then
+      ACTUAL=$($SHA_CMD "$TMPDIR/$ARCHIVE" | cut -d' ' -f1)
+      if [ "$EXPECTED" != "$ACTUAL" ]; then
+        echo "Checksum mismatch!"
+        echo "  Expected: ${EXPECTED}"
+        echo "  Actual:   ${ACTUAL}"
+        exit 1
+      fi
+      echo "Checksum verified."
     fi
-    echo "Checksum verified."
   fi
 fi
 

@@ -47,17 +47,24 @@ try {
   Invoke-WebRequest -Uri $DownloadUrl -OutFile $ArchivePath -UseBasicParsing
 
   # ── Verify checksum ─────────────────────────────────────────────────────────
-  $CheckUrl = "${DownloadUrl}.sha256"
+  $SumsUrl = "${ReleaseUrl}/sha256sums.txt"
+  $SumsContent = $null
   try {
-    $CheckContent = Invoke-RestMethod -Uri $CheckUrl -UseBasicParsing
-    $Expected = ($CheckContent -split '\s+')[0]
-    $Actual = (Get-FileHash $ArchivePath -Algorithm SHA256).Hash.ToLower()
-    if ($Expected -ne $Actual) {
-      throw "Checksum mismatch!`n  Expected: ${Expected}`n  Actual:   ${Actual}"
-    }
-    Write-Output "Checksum verified."
+    $SumsContent = (Invoke-WebRequest -Uri $SumsUrl -UseBasicParsing).Content
   } catch {
     Write-Warning "Checksum file not available, skipping verification."
+  }
+
+  if ($SumsContent) {
+    $Line = ($SumsContent -split "`r?`n" | Where-Object { $_.TrimEnd().EndsWith($Archive) } | Select-Object -First 1)
+    $Expected = ($Line -split '\s+')[0]
+    if ($Expected) {
+      $Actual = (Get-FileHash $ArchivePath -Algorithm SHA256).Hash.ToLower()
+      if ($Expected -ne $Actual) {
+        throw "Checksum mismatch!`n  Expected: ${Expected}`n  Actual:   ${Actual}"
+      }
+      Write-Output "Checksum verified."
+    }
   }
 
   # ── Extract and install ─────────────────────────────────────────────────────
