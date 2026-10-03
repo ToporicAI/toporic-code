@@ -21,21 +21,14 @@ fi
 ARCH=$(uname -m)
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 
-case "$OS" in
-  linux)  TARGET_SUFFIX="unknown-linux-gnu" ;;
-  darwin) TARGET_SUFFIX="apple-darwin"       ;;
+case "${OS}-${ARCH}" in
+  darwin-x86_64)  SLUG="macos-x64" ;;
+  darwin-arm64)   SLUG="macos-arm64" ;;
+  darwin-aarch64) SLUG="macos-arm64" ;;
+  linux-x86_64)   SLUG="linux-x64" ;;
+  linux-aarch64)  SLUG="linux-arm64" ;;
   *)
-    echo "Unsupported OS: $OS"
-    exit 1
-    ;;
-esac
-
-case "$ARCH" in
-  x86_64)  TARGET="${ARCH}-${TARGET_SUFFIX}"   ;;
-  aarch64) TARGET="aarch64-${TARGET_SUFFIX}"    ;;
-  arm64)   TARGET="aarch64-${TARGET_SUFFIX}"    ;;
-  *)
-    echo "Unsupported architecture: $ARCH"
+    echo "Unsupported platform: ${OS}-${ARCH}"
     exit 1
     ;;
 esac
@@ -50,18 +43,18 @@ fi
 
 # ── Fetch latest version ──────────────────────────────────────────────────────
 VERSION_JSON_URL="https://raw.githubusercontent.com/${REPO}/main/version.json"
-VERSION=$(curl -fsSL "$VERSION_JSON_URL" | sed 's/.*"version":"\([^"]*\)".*/\1/')
+VERSION=$(curl -fsSL "$VERSION_JSON_URL" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
 
 if [ -z "$VERSION" ]; then
   echo "Failed to determine latest version."
   exit 1
 fi
 
-echo "Toporic ${VERSION} (${TARGET})"
+echo "Toporic ${VERSION} (${SLUG})"
 
 # ── Download binary ───────────────────────────────────────────────────────────
 RELEASE_URL="https://github.com/${REPO}/releases/download/v${VERSION}"
-ARCHIVE="${APP}-v${VERSION}-${TARGET}.tar.gz"
+ARCHIVE="toporic-code-v${VERSION}-${SLUG}.tar.gz"
 DOWNLOAD_URL="${RELEASE_URL}/${ARCHIVE}"
 
 TMPDIR=$(mktemp -d)
@@ -72,19 +65,21 @@ curl -fsSL "$DOWNLOAD_URL" -o "$TMPDIR/$ARCHIVE"
 
 # ── Verify checksum ───────────────────────────────────────────────────────────
 if [ -n "$SHA_CMD" ]; then
-  CHECK_URL="${DOWNLOAD_URL}.sha256"
-  CHECK_FILE="$TMPDIR/${ARCHIVE}.sha256"
+  SUMS_URL="${RELEASE_URL}/sha256sums.txt"
+  SUMS_FILE="$TMPDIR/sha256sums.txt"
 
-  if curl -fsSL "$CHECK_URL" -o "$CHECK_FILE" 2>/dev/null; then
-    EXPECTED=$(cut -d' ' -f1 < "$CHECK_FILE")
-    ACTUAL=$($SHA_CMD "$TMPDIR/$ARCHIVE" | cut -d' ' -f1)
-    if [ "$EXPECTED" != "$ACTUAL" ]; then
-      echo "Checksum mismatch!"
-      echo "  Expected: ${EXPECTED}"
-      echo "  Actual:   ${ACTUAL}"
-      exit 1
+  if curl -fsSL "$SUMS_URL" -o "$SUMS_FILE" 2>/dev/null; then
+    EXPECTED=$(awk -v f="$ARCHIVE" '$2 == f { print $1; exit }' "$SUMS_FILE")
+    if [ -n "$EXPECTED" ]; then
+      ACTUAL=$($SHA_CMD "$TMPDIR/$ARCHIVE" | cut -d' ' -f1)
+      if [ "$EXPECTED" != "$ACTUAL" ]; then
+        echo "Checksum mismatch!"
+        echo "  Expected: ${EXPECTED}"
+        echo "  Actual:   ${ACTUAL}"
+        exit 1
+      fi
+      echo "Checksum verified."
     fi
-    echo "Checksum verified."
   fi
 fi
 

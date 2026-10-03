@@ -8,9 +8,9 @@ $Repo = "ToporicAI/toporic-code"
 # Use PROCESSOR_ARCHITECTURE from 64-bit PowerShell (WOW64 adds PROCESSOR_ARCHITEW6432)
 $Arch = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { $env:PROCESSOR_ARCHITECTURE }
 $Arch = $Arch.ToLower()
-$Target = switch ($Arch) {
-  "amd64"   { "x86_64-pc-windows-msvc" }
-  "arm64"   { "aarch64-pc-windows-msvc" }
+$Slug = switch ($Arch) {
+  "amd64"   { "windows-x64" }
+  "arm64"   { "windows-arm64" }
   default   { throw "Unsupported architecture: $Arch" }
 }
 
@@ -31,11 +31,11 @@ if (-not $Version) {
   throw "Failed to determine latest version."
 }
 
-Write-Output "Toporic ${Version} (${Target})"
+Write-Output "Toporic ${Version} (${Slug})"
 
 # ── Download binary ───────────────────────────────────────────────────────────
 $ReleaseUrl = "https://github.com/${Repo}/releases/download/v${Version}"
-$Archive = "${App}-v${Version}-${Target}.zip"
+$Archive = "toporic-code-v${Version}-${Slug}.zip"
 $DownloadUrl = "${ReleaseUrl}/${Archive}"
 
 $TmpDir = Join-Path $env:TEMP ([System.IO.Path]::GetRandomFileName())
@@ -47,17 +47,24 @@ try {
   Invoke-WebRequest -Uri $DownloadUrl -OutFile $ArchivePath -UseBasicParsing
 
   # ── Verify checksum ─────────────────────────────────────────────────────────
-  $CheckUrl = "${DownloadUrl}.sha256"
+  $SumsUrl = "${ReleaseUrl}/sha256sums.txt"
+  $SumsContent = $null
   try {
-    $CheckContent = Invoke-RestMethod -Uri $CheckUrl -UseBasicParsing
-    $Expected = ($CheckContent -split '\s+')[0]
-    $Actual = (Get-FileHash $ArchivePath -Algorithm SHA256).Hash.ToLower()
-    if ($Expected -ne $Actual) {
-      throw "Checksum mismatch!`n  Expected: ${Expected}`n  Actual:   ${Actual}"
-    }
-    Write-Output "Checksum verified."
+    $SumsContent = (Invoke-WebRequest -Uri $SumsUrl -UseBasicParsing).Content
   } catch {
     Write-Warning "Checksum file not available, skipping verification."
+  }
+
+  if ($SumsContent) {
+    $Line = ($SumsContent -split "`r?`n" | Where-Object { $_.TrimEnd().EndsWith($Archive) } | Select-Object -First 1)
+    $Expected = ($Line -split '\s+')[0]
+    if ($Expected) {
+      $Actual = (Get-FileHash $ArchivePath -Algorithm SHA256).Hash.ToLower()
+      if ($Expected -ne $Actual) {
+        throw "Checksum mismatch!`n  Expected: ${Expected}`n  Actual:   ${Actual}"
+      }
+      Write-Output "Checksum verified."
+    }
   }
 
   # ── Extract and install ─────────────────────────────────────────────────────
